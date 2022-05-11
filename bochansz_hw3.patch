@@ -1,0 +1,98 @@
+diff --git a/Makefile b/Makefile
+index 09d790c..477dc3e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -51,7 +51,7 @@ TOOLPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/d
+ endif
+ 
+ # If the makefile can't find QEMU, specify its path here
+-# QEMU = qemu-system-i386
++QEMU = /usr/libexec/qemu-kvm
+ 
+ # Try to infer the correct QEMU
+ ifndef QEMU
+@@ -146,14 +146,14 @@ vectors.S: vectors.pl
+ ULIB = ulib.o usys.o printf.o umalloc.o
+ 
+ _%: %.o $(ULIB)
+-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
++	$(LD) $(LDFLAGS) -N -e main -Ttext 0x1000 -o $@ $^
+ 	$(OBJDUMP) -S $@ > $*.asm
+ 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+ 
+ _forktest: forktest.o $(ULIB)
+ 	# forktest has less library code linked in - needs to be small
+ 	# in order to be able to max out the proc table.
+-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
++	$(LD) $(LDFLAGS) -N -e main -Ttext 0x1000 -o _forktest forktest.o ulib.o usys.o
+ 	$(OBJDUMP) -S _forktest > forktest.asm
+ 
+ mkfs: mkfs.c fs.h
+@@ -181,6 +181,7 @@ UPROGS=\
+ 	_usertests\
+ 	_wc\
+ 	_zombie\
++	_nulltest\
+ 
+ fs.img: mkfs README $(UPROGS)
+ 	./mkfs fs.img README $(UPROGS)
+diff --git a/exec.c b/exec.c
+index b40134f..dc64a25 100644
+--- a/exec.c
++++ b/exec.c
+@@ -39,7 +39,7 @@ exec(char *path, char **argv)
+     goto bad;
+ 
+   // Load program into memory.
+-  sz = 0;
++  sz = PGSIZE;
+   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
+     if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
+       goto bad;
+diff --git a/nulltest.c b/nulltest.c
+new file mode 100644
+index 0000000..08c1dc7
+--- /dev/null
++++ b/nulltest.c
+@@ -0,0 +1,15 @@
++#include "types.h"
++#include "user.h"
++#include <stddef.h>
++
++int
++main(int argc, char *argv[])
++{
++  printf(1,"Ensure OS traps and kill the process when trying to reference a null pointer... \n");
++  
++  // Assign NULL definition to a pointer
++  int* null_pointer = NULL;
++
++  // Attempt to assign something to the dereferenced pointer
++  *null_pointer = 200;
++}
+diff --git a/syscall.c b/syscall.c
+index ee85261..67f9cd4 100644
+--- a/syscall.c
++++ b/syscall.c
+@@ -63,7 +63,7 @@ argptr(int n, char **pp, int size)
+  
+   if(argint(n, &i) < 0)
+     return -1;
+-  if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
++  if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz || (i == 0))
+     return -1;
+   *pp = (char*)i;
+   return 0;
+diff --git a/vm.c b/vm.c
+index 7134cff..440f489 100644
+--- a/vm.c
++++ b/vm.c
+@@ -322,7 +322,7 @@ copyuvm(pde_t *pgdir, uint sz)
+ 
+   if((d = setupkvm()) == 0)
+     return 0;
+-  for(i = 0; i < sz; i += PGSIZE){
++  for(i = PGSIZE; i < sz; i += PGSIZE){
+     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+       panic("copyuvm: pte should exist");
+     if(!(*pte & PTE_P))
