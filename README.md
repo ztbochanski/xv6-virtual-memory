@@ -53,28 +53,17 @@ Initialize the test with:
 $ nulltest
 ```
 
-
 SYSTEM TESTS:
 
-- [x] Verify `getpinfo` functionality
-- [x] Verify `settickets` functionality
-- [x] Verify CLI `st` to set tickets
-- [x] Verify CLI `ps` to print process info
-- [x] Test scheduler is working
-- [x] Test scheduler can change tickets
+- [x] Create `NULL` pointer
+- [x] Attempt Assignment to a dereference `*null_pointer`
+- [x] Verify trap
 
-Figure 1. Testing a null pointer dereference and how the OS behaves.
+Figure 1. Testing a null pointer dereference and verification of trap.
 
- ![nullpointer](https://github.com/ztbochanski/xv6-mlfq-lottery-scheduler/raw/main/images/settickets.png)
+ ![nullpointer](https://github.com/ztbochanski/xv6-virtual-memory/raw/main/images/nullptr.png)
 
 Pass✅
-
-Figure 2. Process priority level increased and tickets count reset.
-
- ![priority](https://github.com/ztbochanski/xv6-mlfq-lottery-scheduler/raw/main/images/priority.png)
-
-Pass✅
-
 
 ## Summary
 ---
